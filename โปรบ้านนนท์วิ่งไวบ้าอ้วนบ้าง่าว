@@ -1,0 +1,148 @@
+-- บริการที่จำเป็น
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+-- ตัวผู้เล่น
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- 1. สร้าง ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "RoundedSpeedGui"
+screenGui.ResetOnSpawn = false -- ไม่หายตอนตาย
+screenGui.IgnoreGuiInset = true
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = playerGui
+
+-- 2. สร้าง MainFrame (กล่องหลัก)
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainBackground"
+mainFrame.Size = UDim2.new(0, 200, 0, 60) -- ขนาดสี่เหลี่ยมผืนผ้า (ปรับให้กว้างขึ้นนิดหน่อยเพื่อความสวย)
+mainFrame.Position = UDim2.new(0.5, -100, 0.85, 0) -- วางตำแหน่งด้านล่างกลางจอ
+mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- สีดำ
+mainFrame.BackgroundTransparency = 0.4 -- โปร่งใสแบบดูดี
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true -- เพื่อให้กดได้
+mainFrame.Parent = screenGui
+
+-- 3. ทำให้ขอบมน (Rounded Corners)
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 16) -- ความโค้งมนระดับ 16px
+mainCorner.Parent = mainFrame
+
+-- 4. เพิ่มเส้นขอบ (UIStroke) ให้ดูมีมิติ
+local mainStroke = Instance.new("UIStroke")
+mainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+mainStroke.Color = Color3.fromRGB(255, 255, 255)
+mainStroke.Transparency = 0.7
+mainStroke.Thickness = 2
+mainStroke.Parent = mainFrame
+
+-- 5. สร้าง TextBox (ช่องกรอกความเร็ว)
+local speedInput = Instance.new("TextBox")
+speedInput.Name = "SpeedInputBox"
+speedInput.Size = UDim2.new(0.8, 0, 0.6, 0) -- ขนาด 80% ของกล่องหลัก
+speedInput.Position = UDim2.new(0.1, 0, 0.2, 0) -- จัดกึ่งกลาง
+speedInput.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- พื้นหลังช่องพิมพ์สีเทาเข้ม
+speedInput.BackgroundTransparency = 0.5
+speedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedInput.PlaceholderText = "Speed (e.g. 50)"
+speedInput.PlaceholderColor3 = Color3.fromRGB(180, 180, 180)
+speedInput.Text = ""
+speedInput.Font = Enum.Font.GothamBold -- ฟอนต์สวยๆ
+speedInput.TextSize = 18
+speedInput.TextWrapped = true
+speedInput.ClearTextOnFocus = true
+speedInput.Parent = mainFrame
+
+-- ทำให้ช่องพิมพ์ขอบมนด้วย
+local inputCorner = Instance.new("UICorner")
+inputCorner.CornerRadius = UDim.new(0, 12)
+inputCorner.Parent = speedInput
+
+-- 6. ระบบลากหน้าต่าง (Smooth Dragging Script)
+local dragging, dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    -- ใช้ Lerp เล็กน้อยเพื่อให้ดูลื่นขึ้น (หรือใช้ค่าตรงๆ เพื่อความแม่นยำ)
+    mainFrame.Position = UDim2.new(
+        startPos.X.Scale,
+        startPos.X.Offset + delta.X,
+        startPos.Y.Scale,
+        startPos.Y.Offset + delta.Y
+    )
+end
+
+mainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+mainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+-- 7. ฟังก์ชันเปลี่ยนความเร็ว
+local currentSpeed = 16 -- ค่าความเร็วเริ่มต้น
+
+local function updateSpeed()
+    local char = player.Character
+    if char then
+        local humanoid = char:FindFirstChild("Humanoid")
+        if humanoid then
+            local text = speedInput.Text
+            local num = tonumber(text)
+            
+            if num then
+                currentSpeed = num
+                humanoid.WalkSpeed = num
+                -- เอฟเฟกต์เล็กน้อยเมื่อพิมพ์สำเร็จ (เปลี่ยนสีขอบชั่วคราว)
+                mainStroke.Color = Color3.fromRGB(0, 255, 100)
+                mainStroke.Transparency = 0.2
+                task.wait(0.2)
+                mainStroke.Color = Color3.fromRGB(255, 255, 255)
+                mainStroke.Transparency = 0.7
+            end
+        end
+    end
+end
+
+-- เมื่อกด Enter หรือกดออกจากช่องพิมพ์
+speedInput.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        updateSpeed()
+    end
+end)
+
+-- 8. ระบบคงค่าความเร็วเมื่อตาย (Persistence)
+player.CharacterAdded:Connect(function(char)
+    -- รอให้ Humanoid โหลดเสร็จ
+    local humanoid = char:WaitForChild("Humanoid", 10)
+    if humanoid then
+        -- รออีกนิดเพื่อให้ระบบเกมเซตค่าเริ่มต้นเสร็จก่อน
+        task.wait(0.5)
+        -- ปรับความเร็วกลับเป็นค่าล่าสุดที่ผู้เล่นตั้งไว้
+        if currentSpeed ~= 16 then
+            humanoid.WalkSpeed = currentSpeed
+        end
+    end
+end)
