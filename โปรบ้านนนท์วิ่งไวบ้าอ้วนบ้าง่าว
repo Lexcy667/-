@@ -1,37 +1,56 @@
--- บริการที่จำเป็น
+-- บริการที่จำเป็น (Services)
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
--- ตัวผู้เล่น
+-- ตัวแปรผู้เล่น (Variables)
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- 1. สร้าง ScreenGui
+-- ชื่อสำหรับอ้างอิงเพื่อป้องกันการรันซ้ำ
+local guiName = "UltimateSpeedGui_Auto" 
+local loopName = "UltimateSpeedLoop"
+
+-- ====================================================
+-- 1. ระบบล้างค่าเก่า (Cleanup & Duplicate Check)
+-- ====================================================
+-- เช็คว่ามี UI ชื่อนี้อยู่แล้วไหม ถ้ามีให้ลบทิ้งก่อนสร้างใหม่
+if playerGui:FindFirstChild(guiName) then
+    playerGui[guiName]:Destroy()
+end
+
+-- ยกเลิก Loop ความเร็วอันเก่าถ้ามันทำงานค้างอยู่
+pcall(function()
+    RunService:UnbindFromRenderStep(loopName)
+end)
+
+-- ====================================================
+-- 2. สร้าง GUI ใหม่ (UI Construction)
+-- ====================================================
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "RoundedSpeedGui"
-screenGui.ResetOnSpawn = false -- ไม่หายตอนตาย
+screenGui.Name = guiName
+screenGui.ResetOnSpawn = false -- ตายแล้ว UI ไม่หาย
 screenGui.IgnoreGuiInset = true
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = playerGui
 
--- 2. สร้าง MainFrame (กล่องหลัก)
+-- กรอบหลัก (Main Frame)
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainBackground"
-mainFrame.Size = UDim2.new(0, 200, 0, 60) -- ขนาดสี่เหลี่ยมผืนผ้า (ปรับให้กว้างขึ้นนิดหน่อยเพื่อความสวย)
-mainFrame.Position = UDim2.new(0.5, -100, 0.85, 0) -- วางตำแหน่งด้านล่างกลางจอ
+mainFrame.Size = UDim2.new(0, 180, 0, 50) -- ขนาดกระทัดรัด
+mainFrame.Position = UDim2.new(1, -200, 0, 60) -- จัดวางมุมขวาบน
 mainFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- สีดำ
-mainFrame.BackgroundTransparency = 0.4 -- โปร่งใสแบบดูดี
+mainFrame.BackgroundTransparency = 0.4 -- โปร่งใส
 mainFrame.BorderSizePixel = 0
-mainFrame.Active = true -- เพื่อให้กดได้
+mainFrame.Active = true
 mainFrame.Parent = screenGui
 
--- 3. ทำให้ขอบมน (Rounded Corners)
+-- ทำขอบมน (Rounded Corners)
 local mainCorner = Instance.new("UICorner")
-mainCorner.CornerRadius = UDim.new(0, 16) -- ความโค้งมนระดับ 16px
+mainCorner.CornerRadius = UDim.new(0, 12)
 mainCorner.Parent = mainFrame
 
--- 4. เพิ่มเส้นขอบ (UIStroke) ให้ดูมีมิติ
+-- เส้นขอบสวยงาม (Stroke)
 local mainStroke = Instance.new("UIStroke")
 mainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 mainStroke.Color = Color3.fromRGB(255, 255, 255)
@@ -39,34 +58,35 @@ mainStroke.Transparency = 0.7
 mainStroke.Thickness = 2
 mainStroke.Parent = mainFrame
 
--- 5. สร้าง TextBox (ช่องกรอกความเร็ว)
+-- ช่องกรอกความเร็ว (Input Box)
 local speedInput = Instance.new("TextBox")
 speedInput.Name = "SpeedInputBox"
-speedInput.Size = UDim2.new(0.8, 0, 0.6, 0) -- ขนาด 80% ของกล่องหลัก
-speedInput.Position = UDim2.new(0.1, 0, 0.2, 0) -- จัดกึ่งกลาง
-speedInput.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- พื้นหลังช่องพิมพ์สีเทาเข้ม
+speedInput.Size = UDim2.new(0.8, 0, 0.6, 0)
+speedInput.Position = UDim2.new(0.1, 0, 0.2, 0) -- กึ่งกลาง
+speedInput.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 speedInput.BackgroundTransparency = 0.5
 speedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-speedInput.PlaceholderText = "Speed (e.g. 50)"
+speedInput.PlaceholderText = "Type Speed..."
 speedInput.PlaceholderColor3 = Color3.fromRGB(180, 180, 180)
 speedInput.Text = ""
-speedInput.Font = Enum.Font.GothamBold -- ฟอนต์สวยๆ
-speedInput.TextSize = 18
+speedInput.Font = Enum.Font.GothamBold
+speedInput.TextSize = 16
 speedInput.TextWrapped = true
-speedInput.ClearTextOnFocus = true
+speedInput.ClearTextOnFocus = false -- ไม่ลบข้อความตอนคลิก จะได้พิมพ์แก้ได้ง่าย
 speedInput.Parent = mainFrame
 
--- ทำให้ช่องพิมพ์ขอบมนด้วย
+-- ขอบมนช่องกรอก
 local inputCorner = Instance.new("UICorner")
-inputCorner.CornerRadius = UDim.new(0, 12)
+inputCorner.CornerRadius = UDim.new(0, 8)
 inputCorner.Parent = speedInput
 
--- 6. ระบบลากหน้าต่าง (Smooth Dragging Script)
+-- ====================================================
+-- 3. ระบบลากหน้าต่าง (Draggable System)
+-- ====================================================
 local dragging, dragInput, dragStart, startPos
 
 local function update(input)
     local delta = input.Position - dragStart
-    -- ใช้ Lerp เล็กน้อยเพื่อให้ดูลื่นขึ้น (หรือใช้ค่าตรงๆ เพื่อความแม่นยำ)
     mainFrame.Position = UDim2.new(
         startPos.X.Scale,
         startPos.X.Offset + delta.X,
@@ -101,48 +121,66 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- 7. ฟังก์ชันเปลี่ยนความเร็ว
-local currentSpeed = 16 -- ค่าความเร็วเริ่มต้น
+-- ====================================================
+-- 4. ระบบบังคับความเร็ว (Auto Force Speed Logic)
+-- ====================================================
+local targetSpeed = 16 -- ค่าเริ่มต้นมาตรฐาน
 
-local function updateSpeed()
-    local char = player.Character
-    if char then
-        local humanoid = char:FindFirstChild("Humanoid")
-        if humanoid then
-            local text = speedInput.Text
-            local num = tonumber(text)
-            
-            if num then
-                currentSpeed = num
-                humanoid.WalkSpeed = num
-                -- เอฟเฟกต์เล็กน้อยเมื่อพิมพ์สำเร็จ (เปลี่ยนสีขอบชั่วคราว)
-                mainStroke.Color = Color3.fromRGB(0, 255, 100)
-                mainStroke.Transparency = 0.2
-                task.wait(0.2)
-                mainStroke.Color = Color3.fromRGB(255, 255, 255)
-                mainStroke.Transparency = 0.7
+-- ฟังก์ชันสร้าง Loop บังคับความเร็ว (High Priority)
+local function startSpeedEnforcement()
+    -- ลบ Loop เก่าก่อนกันซ้ำซ้อน
+    pcall(function() RunService:UnbindFromRenderStep(loopName) end)
+    
+    -- สร้าง Loop ใหม่ (Priority สูงกว่า Animation ปกติ)
+    RunService:BindToRenderStep(loopName, Enum.RenderPriority.Character.Value + 100, function()
+        if player.Character then
+            local humanoid = player.Character:FindFirstChild("Humanoid")
+            if humanoid then
+                -- บังคับค่า WalkSpeed ตลอดเวลา
+                if humanoid.WalkSpeed ~= targetSpeed then
+                    humanoid.WalkSpeed = targetSpeed
+                end
+                
+                -- กันตัวละครล้ม/สะดุด (Anti-Trip)
+                if humanoid.Sit then 
+                    humanoid.Sit = false 
+                end
             end
         end
-    end
+    end)
 end
 
--- เมื่อกด Enter หรือกดออกจากช่องพิมพ์
-speedInput.FocusLost:Connect(function(enterPressed)
-    if enterPressed then
-        updateSpeed()
+-- ตรวจจับการพิมพ์แบบ Real-time (ไม่ต้องกด Enter)
+speedInput:GetPropertyChangedSignal("Text"):Connect(function()
+    local text = speedInput.Text
+    local num = tonumber(text)
+    
+    if num then
+        -- ถ้าเป็นตัวเลข: อัปเดตค่าและเริ่มบังคับสปีดทันที
+        targetSpeed = num
+        startSpeedEnforcement()
+        
+        -- เปลี่ยนสีขอบเป็นสีเขียว (Visual Feedback)
+        mainStroke.Color = Color3.fromRGB(0, 255, 100)
+        mainStroke.Transparency = 0.2
+    else
+        -- ถ้าลบหมด หรือพิมพ์ตัวอักษร: คืนค่าสีเดิม
+        mainStroke.Color = Color3.fromRGB(255, 255, 255)
+        mainStroke.Transparency = 0.7
     end
 end)
 
--- 8. ระบบคงค่าความเร็วเมื่อตาย (Persistence)
+-- ====================================================
+-- 5. ระบบจัดการเมื่อตัวละครเกิดใหม่ (Respawn Persistence)
+-- ====================================================
 player.CharacterAdded:Connect(function(char)
-    -- รอให้ Humanoid โหลดเสร็จ
     local humanoid = char:WaitForChild("Humanoid", 10)
     if humanoid then
-        -- รออีกนิดเพื่อให้ระบบเกมเซตค่าเริ่มต้นเสร็จก่อน
-        task.wait(0.5)
-        -- ปรับความเร็วกลับเป็นค่าล่าสุดที่ผู้เล่นตั้งไว้
-        if currentSpeed ~= 16 then
-            humanoid.WalkSpeed = currentSpeed
+        task.wait(0.5) -- รอโหลดเสร็จนิดหน่อย
+        
+        -- เช็คว่าในกล่องข้อความมีเลขค้างไว้ไหม ถ้ามีให้ทำงานต่อเลย
+        if tonumber(speedInput.Text) then
+             startSpeedEnforcement()
         end
     end
 end)
